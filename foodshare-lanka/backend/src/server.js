@@ -9,6 +9,8 @@ const app=express();
 const allowed=(process.env.CLIENT_URL||'http://localhost:5173').split(',').map(x=>x.trim());
 app.use(cors({origin:(origin,cb)=>{if(!origin||allowed.includes(origin)||allowed.includes('*'))return cb(null,true);cb(new Error('CORS origin not allowed'));}}));
 app.use(express.json({limit:'1mb'}));app.use(morgan('dev'));
+app.get('/', (_req, res) => res.json({ message: 'Welcome to FoodShare Lanka API', version: '1.0.0', status: 'online' }));
+app.head('/', (_req, res) => res.sendStatus(200));
 app.get('/api/health',(_req,res)=>res.json({success:true,status:'ok',service:'FoodShare Lanka API',time:new Date().toISOString()}));
 app.use('/api/auth',authRoutes);app.use('/api/donations',donationRoutes);app.use('/api/requests',requestRoutes);app.use('/api/admin',adminRoutes);
 app.use(notFound);app.use(errorHandler);
