@@ -3,7 +3,7 @@ import mongoose from 'mongoose';
 export async function connectDB() {
   const uri = process.env.MONGODB_URI;
   if (!uri) throw new Error('MONGODB_URI is not configured');
-  if (uri.includes('cluster.mongodb.net') || uri.includes('username:password')) {
+  if (uri.includes('<your-cluster-host>') || uri.includes('username:password')) {
     throw new Error(
       'MONGODB_URI still uses the example value. Set it to your real MongoDB Atlas connection string in backend/.env.'
     );
