@@ -10,11 +10,14 @@ export async function connectDB() {
   }
   mongoose.set('strictQuery', true);
   try {
-    await mongoose.connect(uri);
+    await mongoose.connect(uri, {
+      serverSelectionTimeoutMS: 10000,
+      socketTimeoutMS: 45000,
+    });
   } catch (error) {
     throw new Error(
-      `MongoDB connection failed for ${mongoose.connection.host || 'the configured host'}. ` +
-        'Check that MONGODB_URI is correct and that your IP address is allowed in MongoDB Atlas Network Access.',
+      `MongoDB connection failed. Check that MONGODB_URI is correct and that your IP address is allowed in MongoDB Atlas Network Access.\n` +
+        `Cause: ${error.message}`,
       { cause: error }
     );
   }

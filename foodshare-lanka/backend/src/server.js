@@ -15,3 +15,4 @@ app.use(notFound);app.use(errorHandler);
 const port=process.env.PORT||5000;
 if(process.env.NODE_ENV!=='test')connectDB().then(()=>app.listen(port,()=>console.log(`API running on port ${port}`))).catch(err=>{console.error(err);process.exit(1);});
 export default app;
+// env reloaded
