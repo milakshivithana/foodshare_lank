@@ -1,0 +1,1 @@
+import {Link} from 'react-router-dom';export default function NotFound(){return <div className="container page"><div className="empty"><h1>404</h1><h3>That page wandered off.</h3><p>Let's get you back to FoodShare.</p><Link className="btn btn-primary" to="/">Back home</Link></div></div>}

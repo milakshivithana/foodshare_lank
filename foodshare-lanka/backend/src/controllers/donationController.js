@@ -1,0 +1,22 @@
+import mongoose from 'mongoose';
+import Donation from '../models/Donation.js';
+import Request from '../models/Request.js';
+import { asyncHandler } from '../utils/asyncHandler.js';
+import { HttpError } from '../utils/httpError.js';
+import { donationSchema } from '../utils/validation.js';
+
+async function refreshExpired() { await Donation.updateMany({status:{$in:['AVAILABLE','REQUESTED']},bestBeforeDate:{$lt:new Date()}},{status:'EXPIRED'}); }
+export const listDonations=asyncHandler(async(req,res)=>{
+  await refreshExpired(); const {search,category,district,city,status='AVAILABLE',sort='newest'}=req.query; const q={};
+  if(status!=='ALL') q.status=status; if(category && category!=='ALL') q.category=category; if(district && district!=='ALL') q.district=district; if(city) q.city=new RegExp(city,'i');
+  if(search) q.$or=[{title:new RegExp(search,'i')},{description:new RegExp(search,'i')},{city:new RegExp(search,'i')},{district:new RegExp(search,'i')}];
+  const sortMap={newest:{createdAt:-1},expiring:{bestBeforeDate:1},quantity:{quantity:-1}};
+  const donations=await Donation.find(q).populate('donorId','name organizationName donorType city district').sort(sortMap[sort]||sortMap.newest).limit(100);
+  res.json({success:true,data:{donations}});
+});
+export const getDonation=asyncHandler(async(req,res)=>{ if(!mongoose.isValidObjectId(req.params.id)) throw new HttpError(400,'Invalid donation ID'); const donation=await Donation.findById(req.params.id).populate('donorId','name organizationName donorType city district'); if(!donation) throw new HttpError(404,'Donation not found'); res.json({success:true,data:{donation}}); });
+export const createDonation=asyncHandler(async(req,res)=>{ const parsed=donationSchema.safeParse(req.body); if(!parsed.success) return res.status(400).json({success:false,message:parsed.error.issues[0].message,errors:parsed.error.flatten().fieldErrors}); const donation=await Donation.create({...parsed.data,donorId:req.user._id,status:'AVAILABLE'}); res.status(201).json({success:true,message:'Donation published successfully',data:{donation}}); });
+export const updateDonation=asyncHandler(async(req,res)=>{ const donation=await Donation.findById(req.params.id); if(!donation) throw new HttpError(404,'Donation not found'); if(String(donation.donorId)!==String(req.user._id)) throw new HttpError(403,'You can only edit your own donations'); if(!['AVAILABLE','REQUESTED'].includes(donation.status)) throw new HttpError(400,'This donation can no longer be edited'); const parsed=donationSchema.safeParse(req.body); if(!parsed.success) return res.status(400).json({success:false,message:parsed.error.issues[0].message}); Object.assign(donation,parsed.data); await donation.save(); res.json({success:true,message:'Donation updated successfully',data:{donation}}); });
+export const deleteDonation=asyncHandler(async(req,res)=>{ const donation=await Donation.findById(req.params.id); if(!donation) throw new HttpError(404,'Donation not found'); if(String(donation.donorId)!==String(req.user._id)) throw new HttpError(403,'You can only cancel your own donations'); if(['COMPLETED','COLLECTED'].includes(donation.status)) throw new HttpError(400,'Completed donations cannot be cancelled'); donation.status='CANCELLED'; await donation.save(); await Request.updateMany({donationId:donation._id,status:'PENDING'},{status:'CANCELLED'}); res.json({success:true,message:'Donation cancelled'}); });
+export const myDonations=asyncHandler(async(req,res)=>{await refreshExpired(); const donations=await Donation.find({donorId:req.user._id}).sort({createdAt:-1}); res.json({success:true,data:{donations}});});
+export const updateStatus=asyncHandler(async(req,res)=>{ const donation=await Donation.findById(req.params.id); if(!donation) throw new HttpError(404,'Donation not found'); const {status}=req.body; const allowed={AVAILABLE:['REQUESTED','CANCELLED','EXPIRED'],REQUESTED:['ACCEPTED','CANCELLED'],ACCEPTED:['COLLECTED','CANCELLED'],COLLECTED:['COMPLETED'],COMPLETED:[],EXPIRED:[],CANCELLED:[]}; if(!allowed[donation.status]?.includes(status)) throw new HttpError(400,`Cannot change status from ${donation.status} to ${status}`); if(String(donation.donorId)!==String(req.user._id) && req.user.role!=='ADMIN') throw new HttpError(403,'You cannot change this donation status'); donation.status=status; await donation.save(); res.json({success:true,message:'Donation status updated',data:{donation}}); });
